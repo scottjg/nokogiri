@@ -1,3 +1,4 @@
+CWD = File.expand_path(File.dirname(__FILE__))
 ENV['RC_ARCHS'] = '' if RUBY_PLATFORM =~ /darwin/
 
 # :stopdoc:
@@ -59,7 +60,7 @@ else
 
     # Finally fall back to /usr
     '/usr/include',
-    '/usr/include/libxml2',
+    #'/usr/include/libxml2',
   ]
 
   LIB_DIRS = [
@@ -92,15 +93,15 @@ end
 
 dir_config('zlib', HEADER_DIRS, LIB_DIRS)
 dir_config('iconv', HEADER_DIRS, LIB_DIRS)
-dir_config('xml2', XML2_HEADER_DIRS, LIB_DIRS)
-dir_config('xslt', HEADER_DIRS, LIB_DIRS)
+#dir_config('xml2', XML2_HEADER_DIRS, LIB_DIRS)
+#dir_config('xslt', HEADER_DIRS, LIB_DIRS)
 
 def asplode(lib)
   abort "-----\n#{lib} is missing.  please visit http://nokogiri.org/tutorials/installing_nokogiri.html for help with installing dependencies.\n-----"
 end
 
-pkg_config('libxslt')
-pkg_config('libxml-2.0')
+#pkg_config('libxslt')
+#pkg_config('libxml-2.0')
 pkg_config('libiconv')
 
 def have_iconv?
@@ -111,13 +112,37 @@ def have_iconv?
   end
 end
 
-asplode "libxml2"  unless find_header('libxml/parser.h')
-asplode "libxslt"  unless find_header('libxslt/xslt.h')
-asplode "libexslt" unless find_header('libexslt/exslt.h')
+
+
+src = File.basename('libxml2-2.8.0.tar.gz')
+dir = File.basename('libxml2-2.8.0')
+FileUtils.rm_rf(dir) if File.exists?(dir)
+system("tar zxvf #{CWD}/#{src}")
+Dir.chdir(dir) do
+  system("./configure --prefix=#{CWD}/dst --without-lzma")
+  system("make install")
+end
+
+src = File.basename('libxslt-1.1.27.tar.gz')
+dir = File.basename('libxslt-1.1.27')
+FileUtils.rm_rf(dir) if File.exists?(dir)
+system("tar zxvf #{CWD}/#{src}")
+Dir.chdir(dir) do
+  system("./configure --prefix=#{CWD}/dst --with-libxml-prefix=#{CWD}/dst")
+  system("make install")
+end
+
+$CFLAGS << " -I#{CWD}/dst/include/libexslt -I#{CWD}/dst/include/libxslt -I#{CWD}/dst/include/libxml2"
+$LIBS << " #{CWD}/dst/lib/libxml2.a #{CWD}/dst/lib/libxslt.a #{CWD}/dst/lib/libexslt.a -lz -lpthread -liconv -lm"
+
+
+#asplode "libxml2"  unless find_header('libxml/parser.h')
+#asplode "libxslt"  unless find_header('libxslt/xslt.h')
+#asplode "libexslt" unless find_header('libexslt/exslt.h')
 asplode "libiconv" unless have_iconv?
-asplode "libxml2"  unless find_library("#{lib_prefix}xml2", 'xmlParseDoc')
-asplode "libxslt"  unless find_library("#{lib_prefix}xslt", 'xsltParseStylesheetDoc')
-asplode "libexslt" unless find_library("#{lib_prefix}exslt", 'exsltFuncRegister')
+#asplode "libxml2"  unless find_library("#{lib_prefix}xml2", 'xmlParseDoc')
+#asplode "libxslt"  unless find_library("#{lib_prefix}xslt", 'xsltParseStylesheetDoc')
+#asplode "libexslt" unless find_library("#{lib_prefix}exslt", 'exsltFuncRegister')
 
 unless have_func('xmlHasFeature')
   abort "-----\nThe function 'xmlHasFeature' is missing from your installation of libxml2.  Likely this means that your installed version of libxml2 is old enough that nokogiri will not work well.  To get around this problem, please upgrade your installation of libxml2.
